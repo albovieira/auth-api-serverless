@@ -1,0 +1,53 @@
+service: api-auth
+
+custom:
+  secrets: ${file(secrets.json)}
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  region: us-east-1
+  environment:
+    JWT_SECRET: ${self:custom.secrets.JWT_SECRET}
+    DB: ${self:custom.secrets.DB}
+
+functions:
+  verify-token:
+    handler: auth/verify-token.auth
+
+  login:
+    handler: auth/auth-handler.login
+    events:
+      - http:
+          path: login
+          method: post
+          cors: true
+
+  register:
+    handler: auth/auth-handler.register
+    events:
+      - http:
+          path: register
+          method: post
+          cors: true
+
+  me:
+    handler: auth/verify-token.me
+    events:
+      - http:
+          path: me
+          method: get
+          cors: true
+          authorizer: verify-token
+
+  getUsers:
+    handler: users/user-handler.getUsers
+    events:
+      - http:
+          path: users
+          method: get
+          cors: true
