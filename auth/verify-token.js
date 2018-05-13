@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken'); // used to create, sign, and verify tokens
+const connectToDatabase = require('../config/db');
+const User = require('../users/user');
 
 // Policy helper function
 const generatePolicy = (principalId, effect, resource) => {
@@ -33,28 +35,30 @@ module.exports.auth = (event, context, callback) => {
   });
 };
 
-module.exports.me = (event, context) => {
-  context.callbackWaitsForEmptyEventLoop = false;
-  return connectToDatabase()
-    .then(
-      () => me(event.requestContext.authorizer.principalId) // the decoded.id from the VerifyToken.auth will be passed along as the principalId under the authorizer
-    )
-    .then(session => ({
+module.exports.me = async (event, context) => {
+  try {
+    context.callbackWaitsForEmptyEventLoop = false;
+    await connectToDatabase();
+    const session = await me(event.requestContext.authorizer.principalId); // the decoded.id from the VerifyToken.auth will be passed along as the principalId under the authorizer
+    if (!session) {
+      throw new Error('No user found');
+    }
+    return {
       statusCode: 200,
       body: JSON.stringify(session)
-    }))
-    .catch(err => ({
-      statusCode: err.statusCode || 500,
+    };
+  } catch (error) {
+    return {
+      statusCode: error.statusCode || 500,
       headers: { 'Content-Type': 'text/plain' },
-      body: { stack: err.stack, message: err.message }
-    }));
+      body: { stack: error.stack, message: error.message }
+    };
+  }
 };
 
 /*
 * Helpers
 */
 function me(userId) {
-  return User.findById(userId, { password: 0 })
-    .then(user => (!user ? Promise.reject('No user found.') : user))
-    .catch(err => Promise.reject(new Error(err)));
+  return User.findById(userId, { password: 0 });
 }
